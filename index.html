@@ -4,39 +4,32 @@
   <meta charset="UTF-8">
   <title>Блог</title>
 
-  <!-- ВАЖНО для телефона -->
+  <!-- Для телефонов -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Supabase -->
+  <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       margin: 0;
       padding: 16px;
-      background: #f4f4f4;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f2f2f2;
     }
 
     .container {
       max-width: 720px;
       margin: auto;
-      background: white;
+      background: #fff;
       padding: 16px;
       border-radius: 12px;
     }
 
-    h1 {
+    h1, h3 {
       text-align: center;
-      margin-bottom: 20px;
-    }
-
-    h3 {
-      margin-top: 24px;
     }
 
     input, textarea, button {
@@ -55,27 +48,27 @@
 
     button {
       background: #000;
-      color: white;
+      color: #fff;
       border: none;
       font-weight: bold;
+      cursor: pointer;
     }
 
     button:active {
-      opacity: 0.8;
+      opacity: 0.85;
     }
 
     .logout {
       background: #ddd;
-      color: black;
-      margin-bottom: 20px;
+      color: #000;
     }
 
     .post {
       background: #fafafa;
+      border: 1px solid #e0e0e0;
       border-radius: 10px;
       padding: 14px;
       margin-bottom: 14px;
-      border: 1px solid #e0e0e0;
     }
 
     .post h4 {
@@ -84,15 +77,6 @@
 
     .post small {
       color: #777;
-    }
-
-    @media (max-width: 480px) {
-      body {
-        padding: 10px;
-      }
-      .container {
-        padding: 12px;
-      }
     }
   </style>
 </head>
@@ -107,17 +91,17 @@
     <h3>Вход / Регистрация</h3>
     <input id="email" type="email" placeholder="Email">
     <input id="password" type="password" placeholder="Пароль">
-    <button onclick="login()">Войти</button>
+    <button id="loginBtn">Войти / Зарегистрироваться</button>
   </div>
 
   <!-- Приложение -->
   <div id="app" style="display:none">
-    <button class="logout" onclick="logout()">Выйти</button>
+    <button class="logout" id="logoutBtn">Выйти</button>
 
     <h3>Новый пост</h3>
     <input id="title" placeholder="Заголовок">
     <textarea id="content" placeholder="Текст поста"></textarea>
-    <button onclick="addPost()">Опубликовать</button>
+    <button id="postBtn">Опубликовать</button>
 
     <h3>Посты</h3>
     <div id="posts"></div>
@@ -126,69 +110,96 @@
 </div>
 
 <script>
-  const supabase = supabase.createClient(
+  /* === Supabase client === */
+  const supabaseClient = supabase.createClient(
     "SUPABASE_URL",
     "SUPABASE_ANON_KEY"
   );
 
-  async function login() {
-    const emailValue = email.value;
-    const passwordValue = password.value;
+  /* === DOM === */
+  const authBlock = document.getElementById("auth");
+  const appBlock = document.getElementById("app");
+  const postsDiv = document.getElementById("posts");
 
-    let { error } = await supabase.auth.signInWithPassword({
-      email: emailValue,
-      password: passwordValue
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const titleInput = document.getElementById("title");
+  const contentInput = document.getElementById("content");
+
+  /* === Авторизация === */
+  async function login() {
+    const email = emailInput.value;
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+      alert("Введите email и пароль");
+      return;
+    }
+
+    let { error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password
     });
 
     if (error) {
-      await supabase.auth.signUp({
-        email: emailValue,
-        password: passwordValue
-      });
+      const { error: signUpError } =
+        await supabaseClient.auth.signUp({ email, password });
+
+      if (signUpError) {
+        alert(signUpError.message);
+        return;
+      }
     }
 
     checkUser();
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     location.reload();
   }
 
   async function checkUser() {
-    const { data } = await supabase.auth.getUser();
+    const { data } = await supabaseClient.auth.getUser();
+
     if (data.user) {
-      auth.style.display = "none";
-      app.style.display = "block";
+      authBlock.style.display = "none";
+      appBlock.style.display = "block";
       loadPosts();
     }
   }
 
+  /* === Посты === */
   async function addPost() {
-    const { data } = await supabase.auth.getUser();
+    const { data } = await supabaseClient.auth.getUser();
     if (!data.user) return;
 
-    await supabase.from("posts").insert({
-      title: title.value,
-      content: content.value,
+    if (!titleInput.value || !contentInput.value) {
+      alert("Заполните пост");
+      return;
+    }
+
+    await supabaseClient.from("posts").insert({
+      title: titleInput.value,
+      content: contentInput.value,
       user_email: data.user.email
     });
 
-    title.value = "";
-    content.value = "";
+    titleInput.value = "";
+    contentInput.value = "";
     loadPosts();
   }
 
   async function loadPosts() {
-    const { data } = await supabase
+    const { data } = await supabaseClient
       .from("posts")
       .select("*")
       .order("created_at", { ascending: false });
 
-    posts.innerHTML = "";
+    postsDiv.innerHTML = "";
 
     data.forEach(post => {
-      posts.innerHTML += `
+      postsDiv.innerHTML += `
         <div class="post">
           <h4>${post.title}</h4>
           <small>${post.user_email}</small>
@@ -198,10 +209,13 @@
     });
   }
 
+  /* === Кнопки === */
+  document.getElementById("loginBtn").onclick = login;
+  document.getElementById("logoutBtn").onclick = logout;
+  document.getElementById("postBtn").onclick = addPost;
+
   checkUser();
 </script>
 
 </body>
 </html>
-  
-
