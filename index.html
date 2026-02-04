@@ -145,6 +145,211 @@
 
   checkUser();
 </script>
+  <!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Блог</title>
+
+  <!-- ВАЖНО для телефона -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f4f4f4;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: auto;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    h3 {
+      margin-top: 24px;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      background: #000;
+      color: white;
+      border: none;
+      font-weight: bold;
+    }
+
+    button:active {
+      opacity: 0.8;
+    }
+
+    .logout {
+      background: #ddd;
+      color: black;
+      margin-bottom: 20px;
+    }
+
+    .post {
+      background: #fafafa;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .post h4 {
+      margin: 0 0 6px 0;
+    }
+
+    .post small {
+      color: #777;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+      .container {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>📝 Блог</h1>
+
+  <!-- Авторизация -->
+  <div id="auth">
+    <h3>Вход / Регистрация</h3>
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Пароль">
+    <button onclick="login()">Войти</button>
+  </div>
+
+  <!-- Приложение -->
+  <div id="app" style="display:none">
+    <button class="logout" onclick="logout()">Выйти</button>
+
+    <h3>Новый пост</h3>
+    <input id="title" placeholder="Заголовок">
+    <textarea id="content" placeholder="Текст поста"></textarea>
+    <button onclick="addPost()">Опубликовать</button>
+
+    <h3>Посты</h3>
+    <div id="posts"></div>
+  </div>
+
+</div>
+
+<script>
+  const supabase = supabase.createClient(
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY"
+  );
+
+  async function login() {
+    const emailValue = email.value;
+    const passwordValue = password.value;
+
+    let { error } = await supabase.auth.signInWithPassword({
+      email: emailValue,
+      password: passwordValue
+    });
+
+    if (error) {
+      await supabase.auth.signUp({
+        email: emailValue,
+        password: passwordValue
+      });
+    }
+
+    checkUser();
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    location.reload();
+  }
+
+  async function checkUser() {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      auth.style.display = "none";
+      app.style.display = "block";
+      loadPosts();
+    }
+  }
+
+  async function addPost() {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+
+    await supabase.from("posts").insert({
+      title: title.value,
+      content: content.value,
+      user_email: data.user.email
+    });
+
+    title.value = "";
+    content.value = "";
+    loadPosts();
+  }
+
+  async function loadPosts() {
+    const { data } = await supabase
+      .from("posts")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    posts.innerHTML = "";
+
+    data.forEach(post => {
+      posts.innerHTML += `
+        <div class="post">
+          <h4>${post.title}</h4>
+          <small>${post.user_email}</small>
+          <p>${post.content}</p>
+        </div>
+      `;
+    });
+  }
+
+  checkUser();
+</script>
+
+</body>
+  </html>
 
 </body>
   </html>
